@@ -1,7 +1,14 @@
 import argparse
 import sys
 from typing import List
-from .core import DatasetDiffReporter
+from .core import (
+    DatasetDiffReporter,
+    DatasetDiffError,
+    InvalidInputError,
+    SecurityError,
+    DataIntegrityError,
+    DatabaseError
+)
 
 
 def main(argv: List[str] = None) -> int:
@@ -13,6 +20,14 @@ def main(argv: List[str] = None) -> int:
         
     Returns:
         退出码，0表示成功，非0表示失败
+        
+    Exit Codes:
+        0: 成功
+        1: 通用错误
+        2: 无效输入参数
+        3: 安全风险（如SQL注入、路径遍历）
+        4: 数据完整性问题（如重复主键）
+        5: 数据库操作错误
     """
     parser = argparse.ArgumentParser(
         description='数据集快照对比工具 - 对比SQLite数据库中的两张表并生成Markdown报告',
@@ -118,8 +133,40 @@ def main(argv: List[str] = None) -> int:
         
         return 0
         
+    except InvalidInputError as e:
+        print(f"\n【输入错误】", file=sys.stderr)
+        print(f"{e}", file=sys.stderr)
+        print(f"\n提示: 请检查输入参数是否正确。使用 --help 查看帮助信息。", file=sys.stderr)
+        return 2
+        
+    except SecurityError as e:
+        print(f"\n【安全警告】", file=sys.stderr)
+        print(f"{e}", file=sys.stderr)
+        print(f"\n提示: 检测到潜在的安全风险，操作已中止。", file=sys.stderr)
+        return 3
+        
+    except DataIntegrityError as e:
+        print(f"\n【数据完整性错误】", file=sys.stderr)
+        print(f"{e}", file=sys.stderr)
+        print(f"\n提示: 请检查数据中是否存在重复主键或其他完整性问题。", file=sys.stderr)
+        return 4
+        
+    except DatabaseError as e:
+        print(f"\n【数据库错误】", file=sys.stderr)
+        print(f"{e}", file=sys.stderr)
+        print(f"\n提示: 请检查数据库连接和表结构。", file=sys.stderr)
+        return 5
+        
+    except DatasetDiffError as e:
+        print(f"\n【对比错误】", file=sys.stderr)
+        print(f"{e}", file=sys.stderr)
+        return 1
+        
     except Exception as e:
-        print(f'错误: {e}', file=sys.stderr)
+        print(f"\n【意外错误】", file=sys.stderr)
+        print(f"类型: {type(e).__name__}", file=sys.stderr)
+        print(f"详情: {e}", file=sys.stderr)
+        print(f"\n提示: 如果问题持续存在，请检查数据格式或提交Issue。", file=sys.stderr)
         return 1
 
 
